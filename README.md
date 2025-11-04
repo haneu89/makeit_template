@@ -34,13 +34,24 @@ Next.js (Pages Router)와 NestJS를 통합한 풀스택 프로젝트 템플릿�
 이 템플릿을 사용하여 새 프로젝트를 시작하세요:
 
 ```bash
-# GitHub에서 클론
-git clone https://github.com/YOUR_USERNAME/makeit_template.git my-project
-cd my-project
+# 방법 1: GitHub 웹사이트에서 "Use this template" 버튼 클릭 후 클론
+git clone https://github.com/YOUR_USERNAME/my-new-project.git
+cd my-new-project
 
-# 또는 degit 사용 (git 히스토리 없이)
-npx degit YOUR_USERNAME/makeit_template my-project
-cd my-project
+# 방법 2: degit 사용 (권장 - git 히스토리 없이 깔끔하게 시작)
+npx degit haneu89/makeit_template my-new-project
+cd my-new-project
+git init
+git add .
+git commit -m "Initial commit from template"
+
+# 방법 3: 템플릿 직접 클론 (git 히스토리 포함)
+git clone https://github.com/haneu89/makeit_template.git my-new-project
+cd my-new-project
+rm -rf .git
+git init
+git add .
+git commit -m "Initial commit from template"
 ```
 
 ### 2. 의존성 설치
