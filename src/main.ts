@@ -80,15 +80,16 @@ async function bootstrap() {
           callback(null, true);
           return;
         }
-        
+
         // origin이 없는 경우 (같은 도메인 요청) 허용
         if (!origin) {
           callback(null, true);
           return;
         }
-        
-        // CORS_ALLOWED_ORIGINS에 설정된 도메인만 허용
-        if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+
+        // CORS_ALLOWED_ORIGINS에 명시적으로 설정된 도메인만 허용
+        // 비어있으면 외부 도메인 차단 (same-origin만 허용)
+        if (allowedOrigins.length > 0 && allowedOrigins.includes(origin)) {
           callback(null, true);
         } else {
           callback(new Error(`CORS 정책에 의해 차단됨: ${origin}`));
@@ -101,7 +102,7 @@ async function bootstrap() {
 
     console.log('✅ CORS 설정 완료:', {
       환경: isDevelopment ? '개발' : '운영',
-      허용도메인: isDevelopment ? '모든 도메인' : allowedOrigins.length > 0 ? allowedOrigins : '모든 도메인'
+      허용도메인: isDevelopment ? '모든 도메인' : allowedOrigins.length > 0 ? allowedOrigins : 'same-origin만 허용'
     });
 
     app.setGlobalPrefix("api");
