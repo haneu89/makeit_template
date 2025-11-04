@@ -1,0 +1,168 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ========================
+// SQLite Note: ENUM 타입이 없으므로 String으로 관리
+// Role 값: "ADMIN", "MANAGER", "USER"
+// 애플리케이션 레벨에서 검증 필요
+// ========================
+
+// ========================
+// 첨부 파일 모델 (다형성 지원 목적)
+// ========================
+model Attachment {
+  id          Int     @id @default(autoincrement()) // 첨부 파일 ID
+  userId      Int?    // 소유자 ID
+  fileName    String  // 업로드된 원본 파일명
+  savedName   String  // 저장된 파일명 (uuid 등으로 저장)
+  realPath    String  // 파일 경로 (ex: /uploads/...)
+  fileSize    Int?    // 파일 크기 (byte 단위)
+  mime        String? // MIME 타입 (ex: image/png)
+  description String? // 파일 설명 (이미지의 경우 alt 텍스트, 문서의 경우 요약 등)
+
+  storage   String  @default("local") // 저장 위치: "local", "s3" 등
+
+  // 다형성 관계용 필드 (ex: 게시글, 댓글 등 다양한 엔티티에 첨부될 수 있음)
+  attachmenttableId   Int? // 연결된 객체의 ID
+  attachmenttableType String? // 연결된 객체의 타입 (예: "Post", "Comment")
+  viewRole String? // null이면 모든 사용자 가능, 값이 있으면 해당 역할 이상만 보기 가능 (ADMIN, MANAGER, USER)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ========================
+// 페이지 모델
+// ========================
+model Page {
+  route     String  // 라우트 (ex: policy, privacy, terms)
+  domain    String  @default("default")  // 도메인 (ex: example.com)
+  title     String? // 페이지 제목
+  content   String? // 페이지 내용 (richtext)
+  createdAt DateTime? @default(now())
+  updatedAt DateTime? @updatedAt
+
+  @@id([route, domain])
+}
+
+// ========================
+// 설정 모델
+// ========================
+model Preference {
+  domain   String    @default("default")
+  category String    @default("system") // 분류 (ex: system, ad)
+  key      String    // 키 (ex: site_name, site_description)
+  value    String    // 값 (ex: "My Site", "This is my site description")
+  type     String    // 타입 (ex: string, number, boolean)
+  name     String?   // 이름 (ex: "사이트 이름", "사이트 설명")
+  sort     Int       @default(0) // 정렬 순서
+  comment  String?   // 설명 (ex: "사이트 이름", "사이트 설명")
+
+  @@id([key, domain])
+}
+
+// ========================
+// 사용자 모델
+// ========================
+model User {
+  id           Int      @id @default(autoincrement()) // 고유 사용자 ID
+  email        String?  @unique // 이메일
+  username     String?  @unique // 아이디 (로그인용)
+  name         String? // 이름
+  password     String? // 해시된 비밀번호
+  role         String   @default("USER") // 사용자 역할 (USER, ADMIN, MANAGER)
+  profileImage String? // 프로필 이미지 URL
+  points       Int      @default(0) // 보유 포인트
+  isActive     Boolean  @default(true) // 계정 활성화 여부
+  mustChangePassword Boolean @default(false) // 최초 로그인 시 비밀번호 변경 필수
+  createdAt    DateTime @default(now()) // 가입일
+  updatedAt    DateTime @updatedAt // 수정일
+
+  // 관계
+  socialAccounts      SocialAccount[] // 소셜 계정
+  devices             Device[] // 디바이스
+  attachments         Attachment[] // 업로드한 파일
+  activityLogs        ActivityLog[] // 활동 로그
+}
+
+// ========================
+// 소셜 계정 연결
+// ========================
+model SocialAccount {
+  userId         Int       // 사용자 ID
+  provider       String    // 제공자명 (예: "google", "kakao")
+  providerUserId String    // 소셜 서비스 내 유저 ID
+  createdAt      DateTime? @default(now()) // 생성일
+  updatedAt      DateTime? @updatedAt // 수정일
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider])
+}
+
+// ========================
+// 디바이스 정보 (푸시 알림 등)
+// ========================
+model Device {
+  id           Int       @id @default(autoincrement()) // 디바이스 고유 ID
+  userId       Int       // 소유자 ID
+  platform     String?   // 플랫폼 (예: android, ios, web)
+  domain       String?   @default("default") // 앱 도메인 또는 네임스페이스
+  uuid         String    // 디바이스 식별자
+  fcmToken     String?   // FCM 토큰 (푸시 알림용)
+  appVersion   String?   // 앱 버전 (예: 1.2.3)
+  osVersion    String?   // OS 버전 (예: 13, 16.0, Windows 10)
+  deviceModel  String?   // 기기 모델 (예: SM-G991B, iPhone14,2)
+  userAgent    String?   // User-Agent 전체 문자열
+  lastActiveAt DateTime? // 마지막 활동 시간
+  createdAt    DateTime  @default(now()) // 등록일
+  updatedAt    DateTime? @updatedAt // 수정일
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, platform, uuid])
+}
+
+// ========================
+// 활동 로그 모델 (감사 추적)
+// ========================
+model ActivityLog {
+  id        Int     @id @default(autoincrement())
+  action    String  // 활동 유형 (예: "USER_LOGIN", "FILE_UPLOAD", "PAGE_CREATE" 등)
+  userId    Int?    // 행동한 사용자 (비로그인 사용자는 null)
+  userEmail String? // 사용자 이메일 (스냅샷)
+  userName  String? // 사용자 이름 (스냅샷)
+
+  // 활동 세부 정보
+  targetType String? // 대상 타입 (예: "Page", "Attachment", "User")
+  targetId   Int?    // 대상 ID
+  targetName String? // 대상 이름 (스냅샷)
+
+  // 요청 정보
+  ip        String? // IP 주소
+  userAgent String? // User Agent
+  method    String? // HTTP 메서드 (GET, POST, PUT, DELETE)
+  path      String? // 요청 경로
+
+  // 추가 정보
+  metadata  String? // 추가 메타데이터 JSON 문자열 (예: { "oldValue": "...", "newValue": "..." })
+  message   String? // 사람이 읽을 수 있는 설명
+
+  createdAt DateTime @default(now())
+
+  // 관계
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([targetType, targetId])
+}
