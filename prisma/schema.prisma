@@ -109,7 +109,7 @@ model SocialAccount {
 }
 
 // ========================
-// 디바이스 정보 (푸시 알림 등)
+// 디바이스 정보 (푸시 알림 + 인증 토큰)
 // ========================
 model Device {
   id           Int       @id @default(autoincrement()) // 디바이스 고유 ID
@@ -117,11 +117,21 @@ model Device {
   platform     String?   // 플랫폼 (예: android, ios, web)
   domain       String?   @default("default") // 앱 도메인 또는 네임스페이스
   uuid         String    // 디바이스 식별자
+
+  // 푸시 알림
   fcmToken     String?   // FCM 토큰 (푸시 알림용)
+
+  // 인증 토큰 (Device Token 방식)
+  refreshToken String?   // Refresh Token (디바이스별 갱신 토큰)
+  tokenExpiry  DateTime? // 토큰 만료 시간
+
+  // 디바이스 정보
   appVersion   String?   // 앱 버전 (예: 1.2.3)
   osVersion    String?   // OS 버전 (예: 13, 16.0, Windows 10)
   deviceModel  String?   // 기기 모델 (예: SM-G991B, iPhone14,2)
   userAgent    String?   // User-Agent 전체 문자열
+
+  // 활동 추적
   lastActiveAt DateTime? // 마지막 활동 시간
   createdAt    DateTime  @default(now()) // 등록일
   updatedAt    DateTime? @updatedAt // 수정일

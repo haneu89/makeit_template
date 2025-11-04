@@ -17,7 +17,7 @@ export class AuthService {
   ) {}
 
   async login(loginDto: LoginDto) {
-    const { email, password } = loginDto;
+    const { email, password, deviceId, platform, deviceModel, osVersion, appVersion, userAgent } = loginDto;
 
     // 로그인 방식 설정 확인 (email 또는 username)
     const loginMethod = process.env.NEXT_PUBLIC_LOGIN_METHOD || 'email';
@@ -52,8 +52,66 @@ export class AuthService {
       name: user.name,
     };
 
+    // Access Token 생성
+    const accessToken = await this.jwtRoleService.generateToken(tokenPayload);
+
+    // Refresh Token 생성 (디바이스 정보가 있는 경우)
+    let refreshToken: string | null = null;
+    let device: any = null;
+
+    if (deviceId && platform) {
+      // Refresh Token 생성 (긴 만료 시간)
+      const refreshPayload = {
+        ...tokenPayload,
+        type: 'refresh',
+        deviceId,
+      };
+      refreshToken = await this.jwtRoleService.generateRefreshToken(refreshPayload);
+
+      // 디바이스 정보 저장 또는 업데이트
+      const tokenExpiry = new Date();
+      const platformConfig = this.getTokenExpiryByPlatform(platform);
+      tokenExpiry.setDate(tokenExpiry.getDate() + platformConfig.refreshDays);
+
+      device = await this.prisma.device.upsert({
+        where: {
+          userId_platform_uuid: {
+            userId: user.id,
+            platform: platform,
+            uuid: deviceId,
+          },
+        },
+        update: {
+          refreshToken,
+          tokenExpiry,
+          deviceModel,
+          osVersion,
+          appVersion,
+          userAgent,
+          lastActiveAt: new Date(),
+        },
+        create: {
+          userId: user.id,
+          platform,
+          uuid: deviceId,
+          refreshToken,
+          tokenExpiry,
+          deviceModel,
+          osVersion,
+          appVersion,
+          userAgent,
+          lastActiveAt: new Date(),
+        },
+      });
+    }
+
+    const platformConfig = this.getTokenExpiryByPlatform(platform || 'web');
+
     return {
-      access_token: await this.jwtRoleService.generateToken(tokenPayload),
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: platformConfig.accessSeconds,
+      refresh_expires_in: platformConfig.refreshSeconds,
       user: {
         id: user.id,
         email: user.email,
@@ -63,6 +121,40 @@ export class AuthService {
         profileImage: user.profileImage,
       }
     };
+  }
+
+  /**
+   * 플랫폼별 토큰 만료 시간 설정
+   */
+  private getTokenExpiryByPlatform(platform: string) {
+    const config = {
+      web: {
+        accessSeconds: 60 * 60, // 1시간
+        accessDays: 0,
+        refreshSeconds: 7 * 24 * 60 * 60, // 7일
+        refreshDays: 7,
+      },
+      mobile: {
+        accessSeconds: 90 * 24 * 60 * 60, // 90일
+        accessDays: 90,
+        refreshSeconds: 90 * 24 * 60 * 60, // 90일
+        refreshDays: 90,
+      },
+      android: {
+        accessSeconds: 90 * 24 * 60 * 60, // 90일
+        accessDays: 90,
+        refreshSeconds: 90 * 24 * 60 * 60, // 90일
+        refreshDays: 90,
+      },
+      ios: {
+        accessSeconds: 90 * 24 * 60 * 60, // 90일
+        accessDays: 90,
+        refreshSeconds: 90 * 24 * 60 * 60, // 90일
+        refreshDays: 90,
+      },
+    };
+
+    return config[platform] || config.web;
   }
 
   async verifyToken(req: Request) {
@@ -170,6 +262,174 @@ export class AuthService {
         role: user.role,
         profileImage: user.profileImage,
       }
+    };
+  }
+
+  /**
+   * Refresh Token으로 Access Token 갱신
+   */
+  async refreshToken(refreshTokenDto: { refreshToken: string; deviceId?: string }) {
+    const { refreshToken, deviceId } = refreshTokenDto;
+
+    try {
+      // Refresh Token 검증
+      const payload = await this.jwtRoleService.verifyToken(refreshToken);
+
+      if (payload.type !== 'refresh') {
+        throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
+      }
+
+      // DB에서 디바이스 확인
+      const device = await this.prisma.device.findFirst({
+        where: {
+          userId: payload.sub,
+          refreshToken,
+          ...(deviceId && { uuid: deviceId }),
+        },
+        include: {
+          user: true,
+        },
+      });
+
+      if (!device) {
+        throw new UnauthorizedException('유효하지 않은 Refresh Token입니다.');
+      }
+
+      // 토큰 만료 확인
+      if (device.tokenExpiry && device.tokenExpiry < new Date()) {
+        throw new UnauthorizedException('만료된 Refresh Token입니다.');
+      }
+
+      // 새로운 Access Token 생성
+      const newTokenPayload = {
+        sub: device.user.id,
+        role: device.user.role || Role.USER,
+        email: device.user.email,
+        name: device.user.name,
+      };
+
+      const newAccessToken = await this.jwtRoleService.generateToken(newTokenPayload);
+
+      // 디바이스 활동 시간 업데이트
+      await this.prisma.device.update({
+        where: { id: device.id },
+        data: { lastActiveAt: new Date() },
+      });
+
+      const platformConfig = this.getTokenExpiryByPlatform(device.platform || 'web');
+
+      return {
+        access_token: newAccessToken,
+        expires_in: platformConfig.accessSeconds,
+        user: {
+          id: device.user.id,
+          email: device.user.email,
+          username: device.user.username,
+          name: device.user.name,
+          role: device.user.role,
+        },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '알 수 없는 오류';
+      throw new UnauthorizedException('Refresh Token 갱신 실패: ' + message);
+    }
+  }
+
+  /**
+   * 로그아웃 (디바이스 토큰 무효화)
+   */
+  async logout(userId: number, logoutDto: { deviceId?: string; allDevices?: string }) {
+    const { deviceId, allDevices } = logoutDto;
+
+    if (allDevices === 'true') {
+      // 모든 디바이스 로그아웃
+      await this.prisma.device.updateMany({
+        where: { userId },
+        data: {
+          refreshToken: null,
+          tokenExpiry: null,
+        },
+      });
+
+      return {
+        message: '모든 디바이스에서 로그아웃되었습니다.',
+        deviceCount: await this.prisma.device.count({ where: { userId } }),
+      };
+    } else if (deviceId) {
+      // 특정 디바이스만 로그아웃
+      const device = await this.prisma.device.findFirst({
+        where: {
+          userId,
+          uuid: deviceId,
+        },
+      });
+
+      if (!device) {
+        throw new UnauthorizedException('디바이스를 찾을 수 없습니다.');
+      }
+
+      await this.prisma.device.update({
+        where: { id: device.id },
+        data: {
+          refreshToken: null,
+          tokenExpiry: null,
+        },
+      });
+
+      return {
+        message: '로그아웃되었습니다.',
+        deviceId,
+      };
+    } else {
+      // deviceId 정보가 없으면 첫 번째 디바이스 로그아웃
+      const device = await this.prisma.device.findFirst({
+        where: { userId },
+        orderBy: { lastActiveAt: 'desc' },
+      });
+
+      if (device) {
+        await this.prisma.device.update({
+          where: { id: device.id },
+          data: {
+            refreshToken: null,
+            tokenExpiry: null,
+          },
+        });
+      }
+
+      return {
+        message: '로그아웃되었습니다.',
+      };
+    }
+  }
+
+  /**
+   * 사용자의 모든 활성 디바이스 조회
+   */
+  async getActiveDevices(userId: number) {
+    const devices = await this.prisma.device.findMany({
+      where: {
+        userId,
+        refreshToken: { not: null },
+        tokenExpiry: { gte: new Date() },
+      },
+      select: {
+        id: true,
+        platform: true,
+        uuid: true,
+        deviceModel: true,
+        osVersion: true,
+        appVersion: true,
+        lastActiveAt: true,
+        tokenExpiry: true,
+        createdAt: true,
+      },
+      orderBy: { lastActiveAt: 'desc' },
+    });
+
+    return {
+      devices,
+      count: devices.length,
     };
   }
 }
