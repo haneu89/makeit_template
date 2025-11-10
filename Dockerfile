@@ -1,4 +1,5 @@
-FROM node:24-alpine
+FROM node:22-alpine
+
 WORKDIR /usr/src/app
 
 # Alpine Linux에 필요한 빌드 도구 및 런타임 라이브러리 설치

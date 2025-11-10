@@ -81,8 +81,8 @@ async function bootstrap() {
           return;
         }
 
-        // origin이 없는 경우 (같은 도메인 요청) 허용
-        if (!origin) {
+        // origin이 없거나 CORS_ALLOWED_ORIGINS가 비어있으면 허용
+        if (!origin || allowedOrigins.length === 0) {
           callback(null, true);
           return;
         }

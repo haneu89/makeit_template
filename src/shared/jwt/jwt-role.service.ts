@@ -20,6 +20,7 @@ export class JwtRoleService {
       roles: user.roles || [user.role],
       domain: user.domain,
       ...(user.email ? { email: user.email } : {}),
+      ...(user.username ? { username: user.username } : {}),
       ...(user.name ? { name: Buffer.from(user.name).toString('base64') } : {}),
     };
 
@@ -38,6 +39,7 @@ export class JwtRoleService {
       type: 'refresh', // Refresh Token 표시
       deviceId: user.deviceId,
       ...(user.email ? { email: user.email } : {}),
+      ...(user.username ? { username: user.username } : {}),
     };
 
     // Refresh Token은 환경 변수의 만료 시간 사용

@@ -19,6 +19,7 @@ interface AdminLayoutProps {
 interface JwtPayload {
   name: string;
   email: string;
+  username: string;
   role: string;
   sub: number;
 }
@@ -85,22 +86,25 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, authToken }) => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [userData, setUserData] = useState<JwtPayload | null>(null);
-
-  useEffect(() => {
+  
+  // useState의 lazy initialization을 사용하여 초기 렌더링 시 한 번만 계산
+  const [userData] = useState<JwtPayload | null>(() => {
+    if (typeof window === 'undefined') return null;
     const token = getCookie('auth-token');
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload;
-        setUserData({
+        return {
           ...payload,
           name: payload.name ? Buffer.from(payload.name, 'base64').toString() : '', // 한글 디코딩
-        });
+        };
       } catch (error) {
         console.error('Failed to decode JWT:', error);
+        return null;
       }
     }
-  }, []);
+    return null;
+  });
 
   // 화면 크기 변경 감지
   useEffect(() => {
@@ -166,7 +170,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, authToken }) => {
             </div>
             <div className="flex items-center space-x-4 px-4 h-[60px]">
               <span className="text-sm text-gray-600 hidden sm:inline">
-                {userData ? `${userData.name} (${userData.email})` : '로딩 중...'}
+                {userData ? `${userData.name} (${userData.username || userData.email})` : '로딩 중...'}
               </span>
               <button
                 onClick={handleLogout}

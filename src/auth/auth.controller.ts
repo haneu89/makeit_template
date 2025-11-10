@@ -23,13 +23,21 @@ export class AuthController {
     });
 
     // Refresh Token은 httpOnly 쿠키에 저장 (보안)
+    // Remember Me 체크 여부에 따라 쿠키 만료 시간 설정
     if (result.refresh_token) {
-      res.cookie('refresh-token', result.refresh_token, {
+      const refreshCookieOptions: any = {
         httpOnly: true, // 클라이언트 JS에서 접근 불가 (보안)
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: result.refresh_expires_in * 1000,
-      });
+      };
+
+      // refreshSeconds가 0이면 세션 쿠키 (maxAge 설정 안함)
+      // 0보다 크면 지정된 시간으로 설정 (Remember Me 체크)
+      if (result.refresh_expires_in > 0) {
+        refreshCookieOptions.maxAge = result.refresh_expires_in * 1000;
+      }
+
+      res.cookie('refresh-token', result.refresh_token, refreshCookieOptions);
     }
 
     return result;

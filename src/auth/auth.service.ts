@@ -49,6 +49,7 @@ export class AuthService {
       sub: user.id,
       role: user.role || Role.USER,
       email: user.email,
+      username: user.username,
       name: user.name,
     };
 
@@ -175,6 +176,7 @@ export class AuthService {
         user: {
           id: payload.sub,
           email: payload.email,
+          username: payload.username,
           name: payload.name,
           role: payload.role,
         }
@@ -248,6 +250,7 @@ export class AuthService {
       sub: user.id,
       role: user.role || Role.USER,
       email: user.email,
+      username: user.username,
       name: user.name,
       provider,
       providerUserId,
@@ -305,6 +308,7 @@ export class AuthService {
         sub: device.user.id,
         role: device.user.role || Role.USER,
         email: device.user.email,
+        username: device.user.username,
         name: device.user.name,
       };
 

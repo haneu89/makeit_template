@@ -152,6 +152,9 @@ npm run dev
 - `npm run start:dev` - ts-node로 프로덕션 모드 실행
 - `npm run lint` - ESLint 실행
 - `npm run seed` - 데이터베이스 시드
+- `npm test` - 테스트 실행 (Jest)
+- `npm run test:watch` - 테스트 Watch 모드
+- `npm run test:cov` - 테스트 커버리지 확인
 
 ## 아키텍처
 
@@ -367,6 +370,78 @@ npx prisma generate
 npx prisma db push
 npm run seed
 ```
+
+## 테스트
+
+이 프로젝트는 Jest 기반 테스트를 지원합니다.
+
+### 테스트 실행
+
+```bash
+# 전체 테스트 실행
+npm test
+
+# Watch 모드 (파일 변경 감지)
+npm run test:watch
+
+# 커버리지 리포트 생성
+npm run test:cov
+```
+
+### 테스트 파일 작성
+
+테스트 파일은 `.spec.ts` 확장자를 사용합니다:
+
+```typescript
+// src/auth/auth.service.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
+import { AuthService } from './auth.service';
+
+describe('AuthService', () => {
+  let service: AuthService;
+
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AuthService],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+});
+```
+
+### 테스트 제외 방법
+
+**다른 프로젝트로 복사 시 테스트 파일 제외:**
+
+1. `.spec.ts` 파일만 삭제하면 됨
+2. `tsconfig.build.json`에서 자동으로 제외됨
+3. 프로덕션 빌드에는 포함되지 않음
+
+**Git에서 테스트 파일 제외 (선택사항):**
+```bash
+# .gitignore에 추가
+**/*.spec.ts
+coverage/
+```
+
+### 테스트 구조
+
+현재 구현된 테스트:
+
+- `src/auth/auth.service.spec.ts` - AuthService 테스트
+  - Remember Me 기능 (30일 vs 세션 쿠키)
+  - 로그인/로그아웃 로직
+  - 플랫폼별 토큰 만료 시간
+
+- `src/auth/auth.controller.spec.ts` - AuthController 테스트
+  - 쿠키 설정 테스트 (maxAge 처리)
+  - API 엔드포인트 동작 확인
+  - 토큰 갱신 로직
 
 ## 프로젝트 확장
 

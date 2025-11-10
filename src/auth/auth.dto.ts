@@ -1,4 +1,4 @@
-import { IsEmail, IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, IsOptional, IsNumber, IsBoolean } from 'class-validator';
 
 // 로그인 DTO
 export class LoginDto {
@@ -9,6 +9,11 @@ export class LoginDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  // Remember Me (로그인 상태 유지)
+  @IsBoolean()
+  @IsOptional()
+  rememberMe?: boolean; // true: 30일, false: 세션 쿠키
 
   // 디바이스 정보 (선택)
   @IsString()

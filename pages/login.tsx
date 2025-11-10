@@ -28,7 +28,7 @@ const Login = () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, rememberMe }),
       });
 
       const data = await res.json();
@@ -53,6 +53,8 @@ const Login = () => {
         const tokenParts = data.access_token.split('.');
         const payload = JSON.parse(atob(tokenParts[1]));
 
+        // Remember Me 체크 시 이메일만 저장 (자동 완성용)
+        // 토큰 관리는 서버의 쿠키 설정으로 자동 처리됨
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
           localStorage.setItem('userEmail', email);
