@@ -10,30 +10,13 @@ import { Request } from 'express';
 export class JwtRoleStrategy extends PassportStrategy(Strategy, 'jwt') {
   constructor() {
     const secretKey = process.env.JWT_ACCESS_TOKEN_SECRET || 'your-secret-key';
-    
+
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(), // Bearer 헤더에서 추출
-        (request: Request) => {
-          // 쿠키에서 직접 추출 (cookie-parser 없이)
-          const cookieHeader = request.headers.cookie;
-          
-          if (!cookieHeader) return null;
-          
-          const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-            const [key, value] = cookie.trim().split('=');
-            acc[key] = value;
-            return acc;
-          }, {} as Record<string, string>);
-          
-          const token = cookies['auth-token'];
-          
-          return token;
-        },
-      ]),
+      // localStorage 기반 인증: Authorization 헤더에서만 토큰 추출
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: secretKey,
-      passReqToCallback: true, // 요청 객체를 validate로 넘겨줌
+      passReqToCallback: true,
     } as StrategyOptionsWithRequest);
   }
 

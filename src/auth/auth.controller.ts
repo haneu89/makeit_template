@@ -1,9 +1,9 @@
-import { Body, Controller, Post, Get, Req, Res, UseGuards, Param } from '@nestjs/common';
+import { Body, Controller, Post, Get, Req, UseGuards, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto, LogoutDto } from './auth.dto';
 import { Public } from '../shared/jwt';
 import { JwtRoleGuard } from '../shared/jwt/jwt-role.guard';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 
 @Controller('auth')
 export class AuthController {
@@ -11,35 +11,9 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(@Body() loginDto: LoginDto) {
+    // localStorage 기반 인증으로 변경 (포트별 완전 격리)
     const result = await this.authService.login(loginDto);
-
-    // 쿠키에 Access Token 설정
-    res.cookie('auth-token', result.access_token, {
-      httpOnly: false, // 클라이언트에서 읽을 수 있도록
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: result.expires_in * 1000, // 플랫폼별 만료 시간
-    });
-
-    // Refresh Token은 httpOnly 쿠키에 저장 (보안)
-    // Remember Me 체크 여부에 따라 쿠키 만료 시간 설정
-    if (result.refresh_token) {
-      const refreshCookieOptions: any = {
-        httpOnly: true, // 클라이언트 JS에서 접근 불가 (보안)
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-      };
-
-      // refreshSeconds가 0이면 세션 쿠키 (maxAge 설정 안함)
-      // 0보다 크면 지정된 시간으로 설정 (Remember Me 체크)
-      if (result.refresh_expires_in > 0) {
-        refreshCookieOptions.maxAge = result.refresh_expires_in * 1000;
-      }
-
-      res.cookie('refresh-token', result.refresh_token, refreshCookieOptions);
-    }
-
     return result;
   }
 
@@ -53,17 +27,8 @@ export class AuthController {
    */
   @Public()
   @Post('refresh')
-  async refresh(@Body() refreshTokenDto: RefreshTokenDto, @Res({ passthrough: true }) res: Response) {
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     const result = await this.authService.refreshToken(refreshTokenDto);
-
-    // 새로운 Access Token을 쿠키에 설정
-    res.cookie('auth-token', result.access_token, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: result.expires_in * 1000,
-    });
-
     return result;
   }
 
@@ -72,14 +37,9 @@ export class AuthController {
    */
   @UseGuards(JwtRoleGuard)
   @Post('logout')
-  async logout(@Req() req: any, @Body() logoutDto: LogoutDto, @Res({ passthrough: true }) res: Response) {
+  async logout(@Req() req: any, @Body() logoutDto: LogoutDto) {
     const userId = req.user.sub;
     const result = await this.authService.logout(userId, logoutDto);
-
-    // 쿠키 삭제
-    res.clearCookie('auth-token');
-    res.clearCookie('refresh-token');
-
     return result;
   }
 

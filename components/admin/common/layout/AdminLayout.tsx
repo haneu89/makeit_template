@@ -24,22 +24,16 @@ interface JwtPayload {
   sub: number;
 }
 
-// 쿠키 관련 유틸리티 함수들
-const getCookie = (name: string): string | undefined => {
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
-  return undefined;
+// localStorage 관련 유틸리티 함수들 (쿠키 대신 localStorage 사용)
+const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('auth-token');
 };
 
-const setCookie = (name: string, value: string, days: number = 7) => {
-  const date = new Date();
-  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-  document.cookie = `${name}=${value};expires=${date.toUTCString()};path=/`;
-};
-
-const removeCookie = (name: string) => {
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+const removeToken = () => {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('auth-token');
+  localStorage.removeItem('refresh-token');
 };
 
 /**
@@ -90,7 +84,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, authToken }) => {
   // useState의 lazy initialization을 사용하여 초기 렌더링 시 한 번만 계산
   const [userData] = useState<JwtPayload | null>(() => {
     if (typeof window === 'undefined') return null;
-    const token = getCookie('auth-token');
+    const token = getToken();
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload;
@@ -118,9 +112,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, authToken }) => {
   }, []);
 
   const handleLogout = () => {
-    removeCookie('auth-token');
+    removeToken();
     setIsDrawerOpen(false);
-    router.push('/');
+    router.push('/login');
   };
 
   return (

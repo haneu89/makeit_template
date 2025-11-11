@@ -82,26 +82,13 @@ export class AttachmentController {
   }
 
   /**
-   * Bearer 헤더와 쿠키에서 JWT 토큰 추출 (JwtRoleStrategy와 동일한 로직)
+   * Authorization Bearer 헤더에서 JWT 토큰 추출
    */
   private extractTokenFromRequest(req: Request): string | null {
-    // 1. Authorization Bearer 헤더에서 추출
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      if (token) return token;
+      return authHeader.substring(7);
     }
-
-    // 2. 쿠키에서 추출
-    const cookieHeader = req.headers.cookie;
-    if (!cookieHeader) return null;
-
-    const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      acc[key] = value;
-      return acc;
-    }, {} as Record<string, string>);
-
-    return cookies['auth-token'] || null;
+    return null;
   }
 }

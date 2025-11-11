@@ -96,7 +96,20 @@ function MyApp({ Component, pageProps }: AppProps) {
     // fetch 오버라이드
     window.fetch = async (...args) => {
       try {
-        const response = await originalFetch(...args);
+        // Authorization 헤더 자동 추가
+        const [url, options = {}] = args;
+        const token = localStorage.getItem(AUTH_TOKEN_NAME);
+
+        if (token) {
+          const headers = new Headers(options.headers);
+          // Authorization 헤더가 없으면 자동으로 추가
+          if (!headers.has('Authorization')) {
+            headers.set('Authorization', `Bearer ${token}`);
+          }
+          options.headers = headers;
+        }
+
+        const response = await originalFetch(url, options);
 
         // 401 에러 처리
         if (response.status === 401) {
@@ -175,10 +188,8 @@ function MyApp({ Component, pageProps }: AppProps) {
       }
 
       try {
-        const token = document.cookie
-          .split('; ')
-          .find(row => row.startsWith(`${AUTH_TOKEN_NAME}=`))
-          ?.split('=')[1];
+        // localStorage에서 토큰 읽기
+        const token = localStorage.getItem(AUTH_TOKEN_NAME);
 
         // 토큰이 없으면 로그인 페이지로
         if (!token) {

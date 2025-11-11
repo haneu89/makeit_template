@@ -24,13 +24,10 @@ interface JwtPayload {
   [key: string]: any;
 }
 
-// 쿠키 유틸리티
-const getCookie = (name: string): string | undefined => {
-  if (typeof window === 'undefined') return undefined;
-  const value = `; ${document.cookie}`;
-  const parts = value.split(`; ${name}=`);
-  if (parts.length === 2) return parts.pop()?.split(';').shift();
-  return undefined;
+// localStorage 유틸리티 (쿠키 대신 localStorage 사용)
+const getToken = (name: string): string | null => {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(name);
 };
 
 export default function EditModal({ isOpen, user, onClose, onSuccess }: EditModalProps) {
@@ -47,7 +44,7 @@ export default function EditModal({ isOpen, user, onClose, onSuccess }: EditModa
 
   // 현재 사용자의 역할 추출
   useEffect(() => {
-    const token = getCookie('auth-token');
+    const token = getToken('auth-token');
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1])) as JwtPayload;

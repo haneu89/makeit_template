@@ -17,7 +17,7 @@ const Login = () => {
     e.preventDefault();
 
     if (!email || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.');
+      setError('아이디와 비밀번호를 입력해주세요.');
       return;
     }
 
@@ -31,13 +31,15 @@ const Login = () => {
         body: JSON.stringify({ email, password, rememberMe }),
       });
 
+      console.log('응답 상태:', res.status, res.statusText);
       const data = await res.json();
+      console.log('응답 데이터:', data);
 
       if (!res.ok) {
         if (data.error === 'InvalidCredentials' || data.error === 'Email or password does not match.') {
-          setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+          setError('아이디 또는 비밀번호가 올바르지 않습니다.');
         } else if (data.error === 'EmailAlreadyExists') {
-          setError('이미 등록된 이메일입니다.');
+          setError('이미 등록된 계정입니다.');
         } else {
           setError(data.message || data.error || '로그인에 실패했습니다.');
         }
@@ -45,16 +47,20 @@ const Login = () => {
       }
 
       if (data.access_token) {
-        console.log('로그인 성공: 서버에서 쿠키 설정됨', {
-          token: data.access_token ? '토큰 존재함' : '토큰 없음',
+        // localStorage 기반 인증으로 변경 (포트별 완전 격리)
+        localStorage.setItem('auth-token', data.access_token);
+        if (data.refresh_token) {
+          localStorage.setItem('refresh-token', data.refresh_token);
+        }
+
+        console.log('로그인 성공: localStorage에 토큰 저장됨', {
+          token: '토큰 존재함',
           environment: process.env.NODE_ENV
         });
-        
+
         const tokenParts = data.access_token.split('.');
         const payload = JSON.parse(atob(tokenParts[1]));
 
-        // Remember Me 체크 시 이메일만 저장 (자동 완성용)
-        // 토큰 관리는 서버의 쿠키 설정으로 자동 처리됨
         if (rememberMe) {
           localStorage.setItem('rememberMe', 'true');
           localStorage.setItem('userEmail', email);
@@ -120,12 +126,12 @@ const Login = () => {
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label className="block text-gray-700 text-sm font-medium mb-2">
-            {loginMethod === 'username' ? 'Username' : 'Email'}
+            {loginMethod === 'username' ? '아이디' : '아이디 또는 이메일'}
           </label>
           <input
-            type={loginMethod === 'username' ? 'text' : 'email'}
+            type="text"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--main-color)] focus:border-[var(--main-color)] transition-colors"
-            placeholder={loginMethod === 'username' ? 'username' : 'name@company.com'}
+            placeholder={loginMethod === 'username' ? '아이디를 입력하세요' : '아이디 또는 이메일을 입력하세요'}
             value={email}
             onChange={(e) => setUsermail(e.target.value)}
             required
@@ -133,11 +139,11 @@ const Login = () => {
         </div>
 
         <div className="mb-6">
-          <label className="block text-gray-700 text-sm font-medium mb-2">Password</label>
+          <label className="block text-gray-700 text-sm font-medium mb-2">비밀번호</label>
           <input
             type="password"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[var(--main-color)] focus:border-[var(--main-color)] transition-colors"
-            placeholder="••••••••"
+            placeholder="비밀번호를 입력하세요"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -149,7 +155,7 @@ const Login = () => {
           disabled={isLoading}
           className="w-full bg-[var(--main-color)] text-white py-2 rounded-lg hover:bg-[var(--main-color)]/90 mb-4 transition-colors"
         >
-          {isLoading ? 'Signing in...' : 'Sign in to your account'}
+          {isLoading ? '로그인 중...' : '로그인'}
         </button>
 
         {/* <div className="relative mb-4">
@@ -180,10 +186,10 @@ const Login = () => {
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
             />
-            <span className="text-sm text-gray-600">Remember me</span>
+            <span className="text-sm text-gray-600">로그인 상태 유지</span>
           </label>
           <Link href="/forgot/password" className="text-sm text-[var(--main-color)] hover:underline">
-            Forgot password?
+            비밀번호 찾기
           </Link>
         </div>
       </form>
