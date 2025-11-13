@@ -2,6 +2,7 @@ import { AdminLayout, AdminPageWrap } from "@/components/admin/common";
 import { ColumnDef, DataGridServer } from "@/components/admin/common/datagrid";
 import { useState } from "react";
 import { useRouter } from "next/router";
+import { apiFetch } from "@/lib/api";
 import CreateModal from "./create-modal";
 import ShowModal from "./show-modal";
 import Image from "next/image";
@@ -28,12 +29,12 @@ export default function AttachmentIndex() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
-    
+
     try {
-      const response = await fetch(`/api/admin/attachment/${id}`, {
+      const response = await apiFetch(`/api/admin/attachment/${id}`, {
         method: 'DELETE',
       });
-      
+
       if (response.ok) {
         // 삭제 후 데이터 새로고침을 위해 페이지 새로고침
         window.location.reload();
@@ -193,7 +194,7 @@ export default function AttachmentIndex() {
       desc: boolean;
     };
   }) => {
-    const response = await fetch(
+    const response = await apiFetch(
       `/api/admin/attachment?page=${pageIndex + 1}&perPage=${perPage}&sortField=${sortBy?.id || 'id'}&sortOrder=${sortBy?.desc ? 'desc' : 'asc'}`
     );
     const result: ApiResponse = await response.json();
